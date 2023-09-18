@@ -1,3 +1,0 @@
-constructor(string memory _name, string memory _symbol) ERC20(_name, _symbol) {
-     ...
-}
