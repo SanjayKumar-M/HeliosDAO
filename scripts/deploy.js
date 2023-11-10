@@ -2,9 +2,13 @@ const hre = require("hardhat")
 const main = async() =>{
 
     const HeliosCoin = await hre.ethers.getContractFactory("HeliosCoin");
+
     const deployContract = await HeliosCoin.deploy("20000000") ;
+
     await deployContract.waitForDeployment();
+
     const address = deployContract.address;
+    
     console.log(`Contract deployed successfully to ${address}`);
      
 
