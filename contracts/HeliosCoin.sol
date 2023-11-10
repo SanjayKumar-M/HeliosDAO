@@ -34,5 +34,12 @@
             emit Transfer(msg.sender, reciever, Amount);
             return true; 
         }
+         function transferFrom(address from,address to,uint256 value) public override returns(bool) {
+            balances[from] -= value;
+            balances[to] += value;
+            allaccountowed[msg.sender][from] -= value;
+            return true;
+
+    }
         
     }
