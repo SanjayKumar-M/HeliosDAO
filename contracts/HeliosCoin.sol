@@ -1,11 +1,11 @@
-    //SPDX-License-Identifier: MIT
+//SPDX-License-Identifier: MIT
 
-    pragma solidity ^0.8.19;
+pragma solidity ^0.8.19;
 
-    import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-    import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-    contract HeliosCoin is ERC20{
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract HeliosCoin is ERC20{
 
         uint256  _initalsupply;
         
@@ -37,9 +37,9 @@
          function transferFrom(address from,address to,uint256 value) public override returns(bool) {
             balances[from] -= value;
             balances[to] += value;
-            allaccountowed[msg.sender][from] -= value;
+            allowed[msg.sender][from] -= value;
             return true;
 
     }
         
-    }
+}
