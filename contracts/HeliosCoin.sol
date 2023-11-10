@@ -40,6 +40,16 @@ contract HeliosCoin is ERC20{
             allowed[msg.sender][from] -= value;
             return true;
 
+        }
+
+        function approve(address spender,uint256 value) public override returns(bool){
+        allowed[spender][msg.sender] = value;
+        return true;
+        }
+
+        function allowance(address owner,address spender)public override view returns(uint256){
+        return allowed[spender][owner];
+
     }
         
 }
