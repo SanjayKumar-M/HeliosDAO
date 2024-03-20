@@ -1,82 +1,94 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
-
-
+pragma solidity ^0.8.24;
 
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-contract EcoCoin is Ownable {
-    constructor() Ownable() {}
+contract EcoCoin is ERC20, Ownable {
+    using SafeMath for uint256;
 
-    mapping(address => uint256) public balances;
-    mapping(address => mapping(address => uint256)) public allowances;
-
-    string public name = "EcoCoin";
-    string public symbol = "ECO";
-    uint8 public decimals = 18;
-    uint256 public totalSupply;
-
-    function setTotalSupply(uint256 newTotalSupply) external onlyOwner {
-        totalSupply = newTotalSupply;
-    }
-
-    function balancesLength() external view returns (uint256) {
-    uint256 length = 0;
-    for (uint i = 0; i < totalSupply; i++) {
-        address account = address(uint160(i));
-        if (balances[account] > 0) {
-            length++;
-        }
-    }
-    return length;
-}
-
-
-    function setBalance(address account, uint256 amount) external onlyOwner {
-        balances[account] = amount;
-    }
-
-    function transfer(address to, uint256 amount) external returns (bool) { /* ... */ }
-    function approve(address spender, uint256 amount) external returns (bool) { /* ... */ }
-    function transferFrom(address from, address to, uint256 amount) external returns (bool) { /* ... */ }
-}
-
-
-contract EcoCoinController is Ownable {
-    EcoCoin public ecoCoin;
     AggregatorV3Interface public ethPriceFeed;
     uint256 public lastRebaseTimestamp;
+    uint256 public targetPrice = 1 * 10**18; // 1 ECO = 1 USD
 
-    constructor(address _ecoCoin, address _ethPriceFeed) Ownable() {
-        ecoCoin = EcoCoin(_ecoCoin);
-        ethPriceFeed = AggregatorV3Interface(_ethPriceFeed);
-        ecoCoin.setTotalSupply(100000 * 10**ecoCoin.decimals()); // Initial supply of 1 lakh tokens
-        lastRebaseTimestamp = block.timestamp;
-    }
-
-
-    
+    mapping(address => bool) public excludedFromRebase;
 
     event Rebase(uint256 prevSupply, uint256 newSupply);
 
-function rebase() external onlyOwner {
-    uint256 prevSupply = ecoCoin.totalSupply();
-    (, int256 latestPrice, , , ) = ethPriceFeed.latestRoundData();
-    uint256 currentEthPrice = uint256(latestPrice);
-    uint256 targetPrice = 1 * 10**18; // 1 ECO = 1 USD
-    uint256 newSupply = (prevSupply * targetPrice * 10**ecoCoin.decimals()) / currentEthPrice;
-
-    ecoCoin.setTotalSupply(newSupply);
-    lastRebaseTimestamp = block.timestamp;
-
-    uint256 balancesLength = ecoCoin.balancesLength();
-    for (uint256 i = 0; i < balancesLength; i++) {
-       address account = address(uint160(uint256(i)));
-        uint256 balance = ecoCoin.balances(account);
-        ecoCoin.setBalance(account, (balance * newSupply) / prevSupply);
+    constructor(address _ethPriceFeed) ERC20("EcoCoin", "ECO") {
+        _mint(owner(), 100000 * 10**decimals()); // Initial supply of 100,000 tokens
+        ethPriceFeed = AggregatorV3Interface(_ethPriceFeed);
+        lastRebaseTimestamp = block.timestamp;
     }
 
-    emit Rebase(prevSupply, newSupply);
+    function setTargetPrice(uint256 _targetPrice) external onlyOwner {
+        targetPrice = _targetPrice;
+    }
+
+    function excludeFromRebase(address account, bool excluded) external onlyOwner {
+        excludedFromRebase[account] = excluded;
+    }
+
+    function rebase() external onlyOwner {
+        uint256 prevSupply = totalSupply();
+        (, int256 latestPrice, , , ) = ethPriceFeed.latestRoundData();
+        uint256 currentEthPrice = uint256(latestPrice);
+        uint256 newSupply = (prevSupply * targetPrice * 10**decimals()) / currentEthPrice;
+
+        if (newSupply > prevSupply) {
+            _mint(owner(), newSupply.sub(prevSupply));
+        } else {
+            _burn(owner(), prevSupply.sub(newSupply));
+        }
+
+        for (uint256 i = 0; i < totalSupply(); i++) {
+            address account = _holderAt(i);
+            if (!excludedFromRebase[account]) {
+                uint256 balance = balanceOf(account);
+                _burn(account, balance);
+                _mint(account, (balance * newSupply) / prevSupply);
+            }
+        }
+
+        lastRebaseTimestamp = block.timestamp;
+        emit Rebase(prevSupply, newSupply);
+    }
+
+    function _holderAt(uint256 index) internal view returns (address) {
+        uint256 numHolders = totalSupply() / 10**decimals();
+        for (uint256 i = 0; i < numHolders; i++) {
+            if (index == i) {
+                return holderAt(i);
+            }
+            index -= uint256(balanceOf(holderAt(i)));
+        }
+        revert("Index out of bounds");
+    }
+
+    function holderAt(uint256 index) internal pure returns (address) {
+        return address(uint160(uint256(index)));
+    }
 }
+
+contract EcoCoinController is Ownable {
+    EcoCoin public immutable ecoCoin;
+
+    constructor(address _ethPriceFeed, address _initialOwner) {
+        ecoCoin = new EcoCoin(_ethPriceFeed);
+        ecoCoin.transferOwnership(_initialOwner);
+    }
+
+    function setTargetPrice(uint256 _targetPrice) external onlyOwner {
+        ecoCoin.setTargetPrice(_targetPrice);
+    }
+
+    function excludeFromRebase(address account, bool excluded) external onlyOwner {
+        ecoCoin.excludeFromRebase(account, excluded);
+    }
+
+    function rebase() external onlyOwner {
+        ecoCoin.rebase();
+    }
 }
