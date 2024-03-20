@@ -1,65 +1,29 @@
-const { ethers } = require("ethers");
+const { ethers } = require("hardhat");
 
-// Contract ABI (Generated from compiled Solidity code)
-const ecoCoinControllerABI = [
-  // ABI for EcoCoinController contract...
-];
-
-// Provider
-const provider = new ethers.providers.JsonRpcProvider("https://eth-sepolia.g.alchemy.com/v2/Qn_vr7rgg9vT6Dv3aZJ5O2SoT4_DDxeK");
-
-// Signer (Wallet)
-const privateKey = "8736319d495123dada9b10099ddc0722624aaad321aa99df40cf620119c5fcce";
-const wallet = new ethers.Wallet(privateKey, provider);
-
-// Contract address (Deployed EcoCoinController contract address)
-const contractAddress = "YOUR_CONTRACT_ADDRESS";
-
-// Contract instance
-const ecoCoinController = new ethers.Contract(contractAddress, ecoCoinControllerABI, wallet);
-
-// Function to deploy EcoCoinController contract
-async function deployEcoCoinController(usdPriceFeedAddress) {
-  // Load contract factory
-  const EcoCoinController = new ethers.ContractFactory(ecoCoinControllerABI, ecoCoinController.bytecode, wallet);
-
-  // Deploy contract
-  const deployedContract = await EcoCoinController.deploy(usdPriceFeedAddress);
-  console.log("EcoCoinController deployed at:", deployedContract.address);
-
-  // Wait for transaction to be mined
-  await deployedContract.deployed();
-
-  return deployedContract;
-}
-
-// Function to trigger rebase
-async function triggerRebase() {
-  // Trigger rebase
-  const tx = await ecoCoinController.rebase();
-  console.log("Rebase transaction hash:", tx.hash);
-
-  // Wait for transaction to be mined
-  await tx.wait();
-  console.log("Rebase successful!");
-}
-
-// Main function
 async function main() {
-  try {
-    // Deploy EcoCoinController contract
-    const deployedContract = await deployEcoCoinController("USD_PRICE_FEED_ADDRESS");
+  const sepoliaEthUsdPriceFeed = "0x694AA1769357215DE4FAC081bf1f309aDC325306";
+  // Deploy EcoCoin
+  const EcoCoin = await ethers.getContractFactory("EcoCoin");
+  const ecoCoin = await EcoCoin.deploy();
 
-    // Test rebase functionality
-    await triggerRebase();
+  console.log("EcoCoin deployed to:", ecoCoin.target);
 
-    // Additional testing (transfer tokens, etc.)
-    // Add your test cases here...
+  // Deploy EcoCoinController
+  const EcoCoinController = await ethers.getContractFactory("EcoCoinController");
+  const ecoCoinController = await EcoCoinController.deploy(
+    ecoCoin.address,
+    sepoliaEthUsdPriceFeed
+  );
+  
+  console.log("EcoCoinController deployed to:", ecoCoinController.target);
 
-  } catch (error) {
-    console.error("Error:", error);
-  }
+  // Transfer ownership of EcoCoin to EcoCoinController in a separate script
+  // or by interacting with the deployed contracts directly
 }
 
-// Execute main function
-main();
+// We recommend this pattern to be able to use async/await everywhere
+// and properly handle errors.
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
