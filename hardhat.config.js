@@ -6,8 +6,8 @@ module.exports = {
   
   networks:{
     sepolia:{
-      url:"https://eth-sepolia.g.alchemy.com/v2/Yx40Yhrsh9kobCZ5m2W_2_jPOfioFMt3",
-      accounts:['8736319d495123dada9b10099ddc0722624aaad321aa99df40cf620119c5fcce']
+      url: process.env.RPC_URL,
+      accounts: process.env.PRIVATE_KEY
 
     }
     
